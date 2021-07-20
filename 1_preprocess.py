@@ -22,7 +22,7 @@ from mne.time_frequency import psd_welch
 
 # Set directory of raw data (use data in sleep-cassette folder) and pre-processed data
 rawDir = 'F:\\sleep-edf-database-expanded-1.0.0\\sleep-cassette'
-destDir = 'F:\\comp9417 project preprocessed data\\'
+destDir = 'E:\\HDD documents\\University\\comp9417\\comp9417-project-21t2'
 
 
 # %%
@@ -73,7 +73,7 @@ for file in os.listdir(rawDir):
             psg_hyp.append((psgTemp, file))
 
 rows = []
-#psg_hyp = [('SC4001E0-PSG.edf', 'SC4001EC-Hypnogram.edf')]
+# psg_hyp = [('SC4001E0-PSG.edf', 'SC4001EC-Hypnogram.edf')]    # For debugging with 1 patient
 mapping = {'EOG horizontal': 'eog',
            'Resp oro-nasal': 'resp',
            'EMG submental': 'emg',
@@ -133,9 +133,15 @@ for psgFile, hypFile in psg_hyp:
 
         # Get power
         X = eeg_power_band(epochs)
+        X_sum = 0.0
+        
         pID = psgFile[3:5]
         for i in range(0, X.shape[0]):
-            rows.append([pID, X[i, 0], X[i, 1], X[i, 2], X[i, 3], X[i, 4], X[i, 5], list(epochs[i].event_id.values())[0]])
+            X_sum = sum(X[i, :])
+            rows.append([pID,
+                        X[i, 0], X[i, 1], X[i, 2], X[i, 3], X[i, 4], X[i, 5],
+                        X[i, 0]/X_sum, X[i, 1]/X_sum, X[i, 2]/X_sum, X[i, 3]/X_sum, X[i, 4]/X_sum, X[i, 5]/X_sum,
+                        list(epochs[i].event_id.values())[0]])
     except Exception as e:
         print(e)
 
@@ -145,5 +151,10 @@ for psgFile, hypFile in psg_hyp:
 # pID: Patient ID
 # X1-6: Features (power levels of delta, theta, alpha, sigma, beta, gamma bands)
 # Sleep Stage: Output classification (Wake, S1, S2, S3 + S4, REM as 0, 1, 2, 3, 4 respectively) 
-df = pd.DataFrame(data = rows, columns = ['pID', 'X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'Sleep Stage'])
+df = pd.DataFrame(data = rows, columns = ['pID',
+                                            'delta', 'theta', 'alpha', 'sigma', 'beta', 'gamma',
+                                            'delta/all', 'theta/all', 'alpha/all', 'sigma/all', 'beta/all', 'gamma/all',
+                                            'Sleep Stage'])
 df.to_csv(os.path.join(destDir, 'data.csv'), index = False)
+
+# %%
