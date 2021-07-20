@@ -21,8 +21,8 @@ import pandas as pd
 from mne.time_frequency import psd_welch
 
 # Set directory of raw data (use data in sleep-cassette folder) and pre-processed data
-rawDir = 'F:\\sleep-edf-database-expanded-1.0.0\\sleep-cassette'
-destDir = 'F:\\comp9417 project preprocessed data\\'
+rawDir = "./data/sleep-edf-database-expanded-1.0.0/sleep-cassette"
+destDir = "./data/preprocessed/"
 
 
 # %%
