@@ -191,4 +191,6 @@ for train_valid_index, test_index in lpgo.split(X1, Y1, groups):    # returns ge
     print(train_acc)
     print(test_acc) # approx 60-70% with inter-patient
 
+    plt.imshow(clf.coef_, cmap="PRGn")
+
     
