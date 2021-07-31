@@ -243,7 +243,7 @@ for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
     acc = accuracy_score(Y_test, Y_pred)
     report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
     cm = confusion_matrix(Y_test, Y_pred)
-    lr_performance_metrics.append([roc_auc, acc, report, cm])
+    pca_performance_metrics.append([roc_auc, acc, report, cm])
     
     # Testing code
 np.save(os.path.join(results_path, 'pca_classifiers'), pca_classifiers)
@@ -271,7 +271,7 @@ for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
     acc = accuracy_score(Y_test, Y_pred)
     report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
     cm = confusion_matrix(Y_test, Y_pred)
-    lr_performance_metrics.append([roc_auc, acc, report, cm])
+    mlp_performance_metrics.append([roc_auc, acc, report, cm])
     
 np.save(os.path.join(results_path, 'mlp_classifiers'), mlp_classifiers)
 np.save(os.path.join(results_path, 'mlp_best_params'), mlp_best_params)
