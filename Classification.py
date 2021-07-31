@@ -11,11 +11,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 from sklearn.utils import resample
-from sklearn.model_selection import LeavePGroupsOut
+from sklearn.model_selection import GroupKFold, cross_val_score, GridSearchCV
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import roc_auc_score
+from statistics import mean
+
 from sklearn import tree
 from scipy.stats import skew
 from collections import Counter
@@ -146,13 +147,11 @@ def df_to_array(df):
     X = []
     Y = []
     groups = []
-    pids = df['pid'].unique()
-    pid_to_group = {pid: x % 6 for (pid, x) in zip(pids, range(66))}
 
     for row in df.to_numpy():
         X.append(row[1:-1])
         Y.append(int(row[-1]))
-        groups.append(pid_to_group[row[0]])
+        groups.append(row[0])
 
     X = np.asarray(X)
     Y = np.asarray(Y)       
@@ -162,35 +161,40 @@ def df_to_array(df):
 # (Change this if needed) load csv file with epoch features
 data_csv = 'E:/HDD documents/University/comp9417/comp9417-project-21t2/data/subband_data.csv'
 df = pd.read_csv(data_csv)
-df = df.dropna()    # there should not be any nan values anyway
+df = df.dropna()
 
 df = rebalance_df(df)
 X, Y, groups = df_to_array(df)
 X1, Y1 = transform(X, Y)
 # %%
-# split into training and testing
-lpgo = LeavePGroupsOut(n_groups = 1)
-lpgo.get_n_splits(X1, Y1, groups)
-for train_valid_index, test_index in lpgo.split(X1, Y1, groups):    # returns generators
-    X_train_valid = X1[train_valid_index]
-    y_train_valid = Y1[train_valid_index]
-    X_test = X1[test_index]
-    y_test = Y1[test_index]
-    # print(f'X_train {X[train_valid_index].shape} y_train_valid {y[train_valid_index].shape} X_test {X[test_index].shape} y_test {y[test_index].shape}')
+# Inter-patient method
+# Nested CV
+roc_auc_scores = []
+best_params = []
+# Put classifiers and search parameters in here
+###
+lr = LogisticRegression(max_iter = 10000)
+lr_param_grid = {'C': [0.01, 0.1, 1, 10, 100]}
+###
 
-    # Put classifiers and run training, validation, and testing below here within this loop
 
-    clf = LogisticRegression(max_iter=1000)
-    clf = clf.fit(X_train_valid, y_train_valid)
+# Because sklearn does not support cross_val_score() function with GroupKFold CV, we have to do this manually
+outer_cv = GroupKFold(n_splits = 3)
+inner_cv = GroupKFold(n_splits = 4)
+for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
+    X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+    Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+    groups_train_valid = groups[train_valid_i]
 
-    y_pred = clf.predict(X_train_valid)
-    train_acc = np.mean(y_pred == y_train_valid)
-    y_pred = clf.predict(X_test)
-    test_acc = np.mean(y_pred == y_test)
+    # Put 
+    clf = GridSearchCV(estimator = lr, param_grid = lr_param_grid, cv = inner_cv, scoring = 'accuracy', verbose = 3)
+    clf.fit(X_train_valid, Y_train_valid, groups = groups_train_valid)
+    best_param = clf.best_params_
+    best_params.append(best_param)
+    #score = roc_auc_score(Y_test, clf.predict_proba(X_test), multi_class='ovr')
+    #roc_auc_scores.append(score)
 
-    print(train_acc)
-    print(test_acc) # approx 60-70% with inter-patient
-
-    plt.imshow(clf.coef_, cmap="PRGn")
-
-    
+roc_auc = mean(roc_auc_scores)
+print(f'ROC AUC across all folds: {roc_auc_scores}\nMean: {roc_auc}')
+print(f'Best params: {best_params}')
+# %%
