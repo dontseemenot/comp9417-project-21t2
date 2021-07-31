@@ -14,8 +14,12 @@ from sklearn.utils import resample
 from sklearn.model_selection import GroupKFold, cross_val_score, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, classification_report, accuracy_score, confusion_matrix
+from sklearn.preprocessing import OneHotEncoder, label_binarize
 from statistics import mean
+import pickle
+from sklearn.neural_network import MLPClassifier
+import os
 
 from sklearn import tree
 from scipy.stats import skew
@@ -158,6 +162,24 @@ def df_to_array(df):
     groups = np.asarray(groups)
     return X, Y, groups
 
+# Transform categorical data into one hot encoding
+# Required for GridCVSearch with roc_auc as scorer
+# e.g: [0, 1, 2, 3, 4] = [[1, 0, 0, 0, 0], ... , [0, 0, 0, 0, 1]]
+# def inner_cv_roc_auc_scorer(Y_test, Y_pred):
+#     Y_test = label_binarize(Y_test, classes=[0, 1, 2, 3, 4])
+#     Y_pred = label_binarize(Y_pred, classes=[0, 1, 2, 3, 4])
+#     return roc_auc_score(Y_test, Y_pred, multi_class="ovr", average="macro")
+
+def inner_cv_roc_auc_scorer(clf, X_test, Y_test):
+    Y_test = label_binarize(Y_test, classes=[0, 1, 2, 3, 4])
+    Y_pred_proba = clf.predict_proba(X_test)
+    return roc_auc_score(Y_test, Y_pred_proba, multi_class="ovr", average="macro")
+
+def outer_cv_roc_auc_scorer(clf, X_test, Y_test):
+    Y_test = label_binarize(Y_test, classes=[0, 1, 2, 3, 4])
+    Y_pred_proba = clf.predict_proba(X_test)
+    return roc_auc_score(Y_test, Y_pred_proba, multi_class="ovr", average = None)
+
 # (Change this if needed) load csv file with epoch features
 data_csv = 'E:/HDD documents/University/comp9417/comp9417-project-21t2/data/subband_data.csv'
 df = pd.read_csv(data_csv)
@@ -166,35 +188,92 @@ df = df.dropna()
 df = rebalance_df(df)
 X, Y, groups = df_to_array(df)
 X1, Y1 = transform(X, Y)
-# %%
-# Inter-patient method
-# Nested CV
-roc_auc_scores = []
-best_params = []
-# Put classifiers and search parameters in here
-###
-lr = LogisticRegression(max_iter = 10000)
-lr_param_grid = {'C': [0.01, 0.1, 1, 10, 100]}
-###
-
-
 # Because sklearn does not support cross_val_score() function with GroupKFold CV, we have to do this manually
 outer_cv = GroupKFold(n_splits = 3)
 inner_cv = GroupKFold(n_splits = 4)
+results_path = './models/'
+# %%
+lr_classifiers = []
+lr_best_params = []
+lr_performance_metrics = []
 for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
     X_train_valid, X_test = X1[train_valid_i], X1[test_i]
     Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
     groups_train_valid = groups[train_valid_i]
-
-    # Put 
-    clf = GridSearchCV(estimator = lr, param_grid = lr_param_grid, cv = inner_cv, scoring = 'accuracy', verbose = 3)
+    
+    lr = LogisticRegression(max_iter = 10000)
+    param_grid = {'C': [0.1, 1, 10]}
+    clf = GridSearchCV(estimator = lr, param_grid = param_grid, cv = inner_cv, scoring = inner_cv_roc_auc_scorer, verbose = 3)
     clf.fit(X_train_valid, Y_train_valid, groups = groups_train_valid)
-    best_param = clf.best_params_
-    best_params.append(best_param)
-    #score = roc_auc_score(Y_test, clf.predict_proba(X_test), multi_class='ovr')
-    #roc_auc_scores.append(score)
+    lr_best_params.append(clf.best_params_)
+    lr_classifiers.append(clf)
+    # Y_pred = lr_clf.predict(X_test)
 
-roc_auc = mean(roc_auc_scores)
-print(f'ROC AUC across all folds: {roc_auc_scores}\nMean: {roc_auc}')
-print(f'Best params: {best_params}')
+    # Performance metrics
+    Y_pred = clf.predict(X_test)
+    roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+    acc = accuracy_score(Y_test, Y_pred)
+    report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+    cm = confusion_matrix(Y_test, Y_pred)
+    lr_performance_metrics.append([roc_auc, acc, report, cm])
+    
+np.save(os.path.join(results_path, 'lr_classifiers'), lr_classifiers)
+np.save(os.path.join(results_path, 'lr_best_params'), lr_best_params)
+np.save(os.path.join(results_path, 'lr_performance_metrics'), lr_performance_metrics)
+# %%
+pca_classifiers = []
+pca_best_params = []
+pca_performance_metrics = []
+for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
+    X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+    Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+    groups_train_valid = groups[train_valid_i]
+    pca = PCA()
+    param_grid = {'n_components': [5, 10, 15, 20]}
+    clf = GridSearchCV(estimator = pca, param_grid = param_grid, cv = inner_cv, scoring = inner_cv_roc_auc_scorer, verbose = 3)
+    clf.fit(X_train_valid, Y_train_valid, groups = groups_train_valid)
+
+    pca_best_params.append(clf.best_params_)
+    pca_classifiers.append(clf)
+    # Y_pred = lr_clf.predict(X_test)
+
+    # Performance metrics
+    Y_pred = clf.predict(X_test)
+    roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+    acc = accuracy_score(Y_test, Y_pred)
+    report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+    cm = confusion_matrix(Y_test, Y_pred)
+    lr_performance_metrics.append([roc_auc, acc, report, cm])
+    
+    # Testing code
+np.save(os.path.join(results_path, 'pca_classifiers'), pca_classifiers)
+np.save(os.path.join(results_path, 'pca_best_params'), pca_best_params)
+np.save(os.path.join(results_path, 'pca_performance_metrics'), pca_performance_metrics)
+# %%
+mlp_classifiers = []
+mlp_best_params = []
+mlp_performance_metrics = []
+for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
+    X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+    Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+    groups_train_valid = groups[train_valid_i]
+    mlp = MLPClassifier(max_iter = 1000)
+    param_grid = {'hidden_layer_sizes' : [10, 50, 100]}
+    clf = GridSearchCV(estimator=mlp, param_grid=param_grid, cv=inner_cv, scoring=inner_cv_roc_auc_scorer, verbose=3)
+    clf.fit(X_train_valid, Y_train_valid, groups=groups_train_valid)
+
+    mlp_best_params.append(clf.best_params_)
+    mlp_classifiers.append(clf)
+
+    # Performance metrics
+    Y_pred = clf.predict(X_test)
+    roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+    acc = accuracy_score(Y_test, Y_pred)
+    report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+    cm = confusion_matrix(Y_test, Y_pred)
+    lr_performance_metrics.append([roc_auc, acc, report, cm])
+    
+np.save(os.path.join(results_path, 'mlp_classifiers'), mlp_classifiers)
+np.save(os.path.join(results_path, 'mlp_best_params'), mlp_best_params)
+np.save(os.path.join(results_path, 'mlp_performance_metrics'), mlp_performance_metrics)
 # %%
