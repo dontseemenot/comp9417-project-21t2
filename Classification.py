@@ -240,6 +240,43 @@ def mlp_inter_classify(X1, Y1, groups, folder):
     np.save(os.path.join(folder, 'mlp_performance_metrics'), mlp_performance_metrics)
     return mlp_classifiers, mlp_best_params, mlp_performance_metrics
 
+def two_layer_mlp_inter_classify(X1, Y1, groups, folder):
+    import torch.nn as nn
+    from perceptron_estimator import PytorchEstimator
+
+    two_layer_mlp_classifiers = []
+    two_layer_mlp_best_params = []
+    two_layer_mlp_performance_metrics = []
+    outer_cv = GroupKFold(n_splits = 3)
+    inner_cv = GroupKFold(n_splits = 4)
+    for train_valid_i, test_i in outer_cv.split(X1, Y1, groups = groups):
+        X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+        Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+        groups_train_valid = groups[train_valid_i]
+        mlp = PytorchEstimator(total_epochs=20)
+        param_grid = {
+            'hidden_count' : [10, 50],
+            'activation': [nn.ReLU, nn.Sigmoid, nn.PReLU]
+        }
+        clf = GridSearchCV(estimator=mlp, param_grid=param_grid, cv=inner_cv, scoring=inner_cv_roc_auc_scorer, verbose=3)
+        clf.fit(X_train_valid, Y_train_valid, groups=groups_train_valid)
+
+        two_layer_mlp_best_params.append(clf.best_params_)
+        two_layer_mlp_classifiers.append(clf)
+
+        # Performance metrics
+        Y_pred = clf.predict(X_test)
+        roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+        acc = accuracy_score(Y_test, Y_pred)
+        report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+        cm = confusion_matrix(Y_test, Y_pred)
+        two_layer_mlp_performance_metrics.append([roc_auc, acc, report, cm])
+
+    np.save(os.path.join(folder, 'two_layer_mlp_classifiers'), two_layer_mlp_classifiers)
+    np.save(os.path.join(folder, 'two_layer_mlp_best_params'), two_layer_mlp_best_params)
+    np.save(os.path.join(folder, 'two_layer_mlp_performance_metrics'), two_layer_mlp_performance_metrics)
+    return two_layer_mlp_classifiers, two_layer_mlp_best_params, two_layer_mlp_performance_metrics
+
 def dt_inter_classify(X1, Y1, groups, folder):
     dt_classifiers = []
     dt_best_params = []
@@ -299,7 +336,7 @@ def lr_intra_classify(X1, Y1, folder):
         lr_performance_metrics.append([roc_auc, acc, report, cm])
 
     np.save(os.path.join(folder, 'lr_classifiers'), lr_classifiers)
-    np.save(os.path.join(folderh, 'lr_best_params'), lr_best_params)
+    np.save(os.path.join(folder, 'lr_best_params'), lr_best_params)
     np.save(os.path.join(folder, 'lr_performance_metrics'), lr_performance_metrics)
     return lr_classifiers, lr_best_params, lr_performance_metrics
 
@@ -364,8 +401,45 @@ def dt_intra_classify(X1, Y1, folder):
     np.save(os.path.join(folder, 'dt_performance_metrics'), dt_performance_metrics)
     return dt_classifiers, dt_best_params, dt_performance_metrics
 
+def two_layer_mlp_intra_classify(X1, Y1, folder):
+    import torch.nn as nn
+    from perceptron_estimator import PytorchEstimator
+
+    two_layer_mlp_classifiers = []
+    two_layer_mlp_best_params = []
+    two_layer_mlp_performance_metrics = []
+    outer_cv = StratifiedKFold(n_splits=3)
+    inner_cv = StratifiedKFold(n_splits=4)
+    for train_valid_i, test_i in outer_cv.split(X1, Y1):
+        X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+        Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+        mlp = PytorchEstimator(total_epochs=20)
+        param_grid = {
+            'hidden_count' : [10, 50],
+            'activation': [nn.ReLU, nn.Sigmoid, nn.PReLU]
+        }
+        clf = GridSearchCV(estimator=mlp, param_grid=param_grid, cv=inner_cv, scoring=inner_cv_roc_auc_scorer, verbose=3)
+        clf.fit(X_train_valid, Y_train_valid)
+
+        two_layer_mlp_best_params.append(clf.best_params_)
+        two_layer_mlp_classifiers.append(clf)
+
+        # Performance metrics
+        Y_pred = clf.predict(X_test)
+        roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+        acc = accuracy_score(Y_test, Y_pred)
+        report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+        cm = confusion_matrix(Y_test, Y_pred)
+        two_layer_mlp_performance_metrics.append([roc_auc, acc, report, cm])
+
+    np.save(os.path.join(folder, 'two_layer_mlp_classifiers'), two_layer_mlp_classifiers)
+    np.save(os.path.join(folder, 'two_layer_mlp_best_params'), two_layer_mlp_best_params)
+    np.save(os.path.join(folder, 'two_layer_mlp_performance_metrics'), two_layer_mlp_performance_metrics)
+    return two_layer_mlp_classifiers, two_layer_mlp_best_params, two_layer_mlp_performance_metrics
+
 # %%
-data_csv = 'E:/HDD documents/University/comp9417/comp9417-project-21t2/data/subband_data.csv' # (Change this if needed) load csv file with epoch features
+# data_csv = 'E:/HDD documents/University/comp9417/comp9417-project-21t2/data/subband_data.csv' # (Change this if needed) load csv file with epoch features
+data_csv = './data/subband_data.csv' # (Change this if needed) load csv file with epoch features
 
 df = pd.read_csv(data_csv)
 df = df.dropna()
@@ -375,26 +449,30 @@ for folder in result_folders:
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+# %%
 # METHOD 1: Intra-patient split without dataset rebalance
 X1, Y1, groups = filter_df(df, balance = False)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-intra_imbal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[0])
-intra_imbal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[0])
-intra_imbal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[0])
+# intra_imbal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[0])
+# intra_imbal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[0])
+# intra_imbal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[0])
+_ = two_layer_mlp_intra_classify(X1, Y1, result_folders[0])
 # %%
 # METHOD 2: Intra-patient split with dataset rebalance
 X1, Y1, groups = filter_df(df, balance = True)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-intra_bal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[1])
-intra_bal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[1])
-intra_bal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[1])
+# intra_bal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[1])
+# intra_bal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[1])
+# intra_bal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[1])
+_ = two_layer_mlp_intra_classify(X1, Y1, result_folders[1])
 # %%
 # METHOD 3: Inter-patient split with dataset rebalance
 X1, Y1, groups = filter_df(df, balance = True)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-inter_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_inter_classify(X1, Y1, groups, folder[2])
-inter_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_inter_classify(X1, Y1, groups, folder[2])
-inter_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_inter_classify(X1, Y1, groups, folder[2])
+# inter_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_inter_classify(X1, Y1, groups, folder[2])
+# inter_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_inter_classify(X1, Y1, groups, folder[2])
+# inter_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_inter_classify(X1, Y1, groups, folder[2])
+_ = two_layer_mlp_inter_classify(X1, Y1, groups, result_folders[2])
