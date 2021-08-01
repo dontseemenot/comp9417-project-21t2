@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sn
 from scipy.stats import skew
-from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, recall_score, precision_score
 
 from collections import Counter
 from tqdm import tqdm
@@ -592,8 +592,14 @@ y_class_test = np.zeros((N*L,K))
 for i in range(N*L):
     y_class_test[i,y_test[i]] = 1
 
+# accuracy
+y_class_predict = np.argmax(y_class_pred, axis=-1)
+acc = np.mean(y_class_predict == y_test)
+print(f"acc={acc}")
+
+# roc-auc values
 auc = roc_auc_score(y_class_test, y_class_pred, multi_class="ovo", average=None)
-print(auc)
+print("ROC-AUC")
 
 print("Class\tAccuracy\tROC-AUC")
 for i in range(5):
@@ -604,9 +610,15 @@ for i in range(5):
     acc = np.mean(np.argmax(test, axis=-1) == np.argmax(pred, axis=-1))
     print(f"{i}\t{acc:.4f}\t\t{auc[i]:.4f}")
 
+recall = recall_score(y_test, y_class_predict, average=None, labels=np.arange(5))
+precision = precision_score(y_test, y_class_predict, average=None, labels=np.arange(5))
+
+print(f"Recall: {recall}")
+print(f"Precision: {precision}")
+
 # plot the confusion matrix
-conf_mat = confusion_matrix(y_class_test, y_class_pred)
-conf_mat /= np.sum(conf_mat, axis=1)
+conf_mat = confusion_matrix(y_test, y_class_predict)
+conf_mat = conf_mat / np.sum(conf_mat, axis=1)
 
 label_names = ["Awake", "Stage 1", "Stage 2", "Stage 3/4", "REM"]
 
