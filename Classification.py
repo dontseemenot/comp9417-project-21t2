@@ -272,6 +272,104 @@ def dt_inter_classify(X1, Y1, groups):
     np.save(os.path.join(results_path, 'dt_performance_metrics'), dt_performance_metrics)
     return dt_classifiers, dt_best_params, dt_performance_metrics
 
+def lr_intra_classify(X1, Y1, groups):
+    lr_classifiers = []
+    lr_best_params = []
+    lr_performance_metrics = []
+    outer_cv = StratifiedKFold(n_splits = 3)
+    inner_cv = StratifiedKFold(n_splits = 4)
+    for train_valid_i, test_i in outer_cv.split(X1, Y1):
+        X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+        Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+        groups_train_valid = groups[train_valid_i]
+        
+        lr = LogisticRegression(max_iter = 10000)
+        param_grid = {'C': [0.1, 1, 10]}
+        clf = GridSearchCV(estimator = lr, param_grid = param_grid, cv = inner_cv, scoring = inner_cv_roc_auc_scorer, verbose = 3)
+        clf.fit(X_train_valid, Y_train_valid, groups = groups_train_valid)
+        lr_best_params.append(clf.best_params_)
+        lr_classifiers.append(clf)
+        # Y_pred = lr_clf.predict(X_test)
+
+        # Performance metrics
+        Y_pred = clf.predict(X_test)
+        roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+        acc = accuracy_score(Y_test, Y_pred)
+        report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+        cm = confusion_matrix(Y_test, Y_pred)
+        lr_performance_metrics.append([roc_auc, acc, report, cm])
+
+    results_path = './results_intra/'
+    np.save(os.path.join(results_path, 'lr_classifiers'), lr_classifiers)
+    np.save(os.path.join(results_path, 'lr_best_params'), lr_best_params)
+    np.save(os.path.join(results_path, 'lr_performance_metrics'), lr_performance_metrics)
+    return lr_classifiers, lr_best_params, lr_performance_metrics
+
+def mlp_intra_classify(X1, Y1, groups):
+    mlp_classifiers = []
+    mlp_best_params = []
+    mlp_performance_metrics = []
+    outer_cv = StratifiedKFold(n_splits = 3)
+    inner_cv = StratifiedKFold(n_splits = 4)
+    for train_valid_i, test_i in outer_cv.split(X1, Y1):
+        X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+        Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+        groups_train_valid = groups[train_valid_i]
+        mlp = MLPClassifier(max_iter = 1000)
+        param_grid = {'hidden_layer_sizes' : [10, 50, 100]}
+        clf = GridSearchCV(estimator=mlp, param_grid=param_grid, cv=inner_cv, scoring=inner_cv_roc_auc_scorer, verbose=3)
+        clf.fit(X_train_valid, Y_train_valid, groups=groups_train_valid)
+
+        mlp_best_params.append(clf.best_params_)
+        mlp_classifiers.append(clf)
+
+        # Performance metrics
+        Y_pred = clf.predict(X_test)
+        roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+        acc = accuracy_score(Y_test, Y_pred)
+        report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+        cm = confusion_matrix(Y_test, Y_pred)
+        mlp_performance_metrics.append([roc_auc, acc, report, cm])
+
+    results_path = './results_intra/'
+    np.save(os.path.join(results_path, 'mlp_classifiers'), mlp_classifiers)
+    np.save(os.path.join(results_path, 'mlp_best_params'), mlp_best_params)
+    np.save(os.path.join(results_path, 'mlp_performance_metrics'), mlp_performance_metrics)
+    return mlp_classifiers, mlp_best_params, mlp_performance_metrics
+
+def dt_intra_classify(X1, Y1, groups):
+    dt_classifiers = []
+    dt_best_params = []
+    dt_performance_metrics = []
+    outer_cv = StratifiedKFold(n_splits = 3)
+    inner_cv = StratifiedKFold(n_splits = 4)
+    for train_valid_i, test_i in outer_cv.split(X1, Y1):
+        X_train_valid, X_test = X1[train_valid_i], X1[test_i]
+        Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
+        groups_train_valid = groups[train_valid_i]
+        dt = DecisionTreeClassifier()
+        param_grid = {'max_depth': [2, 3, 4, 5, 6, 7, 8, 9, 10]}
+        clf = GridSearchCV(estimator = dt, param_grid = param_grid, cv = inner_cv, scoring = inner_cv_roc_auc_scorer, verbose = 3)
+        clf.fit(X_train_valid, Y_train_valid, groups = groups_train_valid)
+
+        dt_best_params.append(clf.best_params_)
+        dt_classifiers.append(clf)
+        # Y_pred = lr_clf.predict(X_test)
+
+        # Performance metrics
+        Y_pred = clf.predict(X_test)
+        roc_auc = outer_cv_roc_auc_scorer(clf, X_test, Y_test)
+        acc = accuracy_score(Y_test, Y_pred)
+        report = classification_report(Y_test, Y_pred, target_names = ['W', 'S1', 'S2', 'SWS', 'R'])
+        cm = confusion_matrix(Y_test, Y_pred)
+        dt_performance_metrics.append([roc_auc, acc, report, cm])
+
+    results_path = './results_intra/'
+    np.save(os.path.join(results_path, 'dt_classifiers'), dt_classifiers)
+    np.save(os.path.join(results_path, 'dt_best_params'), dt_best_params)
+    np.save(os.path.join(results_path, 'dt_performance_metrics'), dt_performance_metrics)
+    return dt_classifiers, dt_best_params, dt_performance_metrics
+
 # %%
 data_csv = 'E:/HDD documents/University/comp9417/comp9417-project-21t2/data/subband_data.csv' # (Change this if needed) load csv file with epoch features
 
@@ -286,8 +384,10 @@ inter_lr_classifiers, inter_lr_best_params, inter_lr_performance_metrics = lr_in
 inter_mlp_classifiers, inter_mlp_best_params, inter_mlp_performance_metrics = mlp_inter_classify(X1, Y1, groups)
 inter_dt_classifiers, inter_dt_best_params, inter_dt_performance_metrics = dt_inter_classify(X1, Y1, groups)
 # %%
-
-# %%
 df_intra = rebalance_df(df, 'intra')
 X, Y, groups = df_to_array(df_intra)
 X1, Y1 = transform(X, Y)
+print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
+intra_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, groups)
+intra_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, groups)
+intra_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, groups)
