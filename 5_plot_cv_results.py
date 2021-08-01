@@ -1,3 +1,4 @@
+# %%
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, classification_report, accuracy_score, confusion_matrix
@@ -135,8 +136,9 @@ def plot_results(best_params, clfs, perf_metrics):
     plt.ylabel("True label")
     plt.xlabel("Predicted label")
     plt.title(f"Confusion matrix for {model_name[model_key]}\nwith {method_name[method_key]} dataset")
+    plt.show()
 
-# for every single model plot the results
+# %% for every single model plot the results
 for method_key in models.keys():
     for model_key in models[method_key].keys():
         print(f"Method={method_key}, Model={model_key}")
