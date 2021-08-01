@@ -130,7 +130,10 @@ def transform(X, Y):
 # 2) Filter out patients with a missing sleep stage (79 -> 68)
 # 3) Reduce the last 2 patients so nested GroupKFold can be performed with nice integers (68 -> 66)
 # 4) a) If inter-patient splitting is used, resample based on average number of epochs per sleep stage averaged across all patients. This comes out to be 247 epochs per sleep stage per patient.
-# b) If intra-patient splitting is used, skip this step
+#    b) If intra-patient splitting is used, skip this step
+# 5) Convert df to array format
+# 6) Apply transform to remaining epochs
+# 7) Return 
 
 def filter_df(df, balance):
     total_size = 66
@@ -313,8 +316,8 @@ def lr_intra_classify(X1, Y1, folder):
     lr_classifiers = []
     lr_best_params = []
     lr_performance_metrics = []
-    outer_cv = StratifiedKFold(n_splits = 3)
-    inner_cv = StratifiedKFold(n_splits = 4)
+    outer_cv = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 42)
+    inner_cv = StratifiedKFold(n_splits = 4, shuffle = True, random_state = 4)
     for train_valid_i, test_i in outer_cv.split(X1, Y1):
         X_train_valid, X_test = X1[train_valid_i], X1[test_i]
         Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
@@ -344,8 +347,8 @@ def mlp_intra_classify(X1, Y1, folder):
     mlp_classifiers = []
     mlp_best_params = []
     mlp_performance_metrics = []
-    outer_cv = StratifiedKFold(n_splits = 3)
-    inner_cv = StratifiedKFold(n_splits = 4)
+    outer_cv = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 4)
+    inner_cv = StratifiedKFold(n_splits = 4, shuffle = True, random_state = 4)
     for train_valid_i, test_i in outer_cv.split(X1, Y1):
         X_train_valid, X_test = X1[train_valid_i], X1[test_i]
         Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
@@ -374,8 +377,8 @@ def dt_intra_classify(X1, Y1, folder):
     dt_classifiers = []
     dt_best_params = []
     dt_performance_metrics = []
-    outer_cv = StratifiedKFold(n_splits = 3)
-    inner_cv = StratifiedKFold(n_splits = 4)
+    outer_cv = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 4)
+    inner_cv = StratifiedKFold(n_splits = 4, shuffle = True, random_state = 4)
     for train_valid_i, test_i in outer_cv.split(X1, Y1):
         X_train_valid, X_test = X1[train_valid_i], X1[test_i]
         Y_train_valid, Y_test = Y1[train_valid_i], Y1[test_i]
@@ -444,35 +447,35 @@ data_csv = './data/subband_data.csv' # (Change this if needed) load csv file wit
 df = pd.read_csv(data_csv)
 df = df.dropna()
 
-result_folders = ['./results_intra_imbal/', './results_intra_bal', './results_inter_bal']
+result_folders = ['./results_intra_imbal/', './results_intra_bal/', './results_inter/']
 for folder in result_folders:
     if not os.path.exists(folder):
         os.makedirs(folder)
-
 # %%
-# METHOD 1: Intra-patient split without dataset rebalance
+# METHOD 1: Intra-patient split without dataset balance
 X1, Y1, groups = filter_df(df, balance = False)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-# intra_imbal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[0])
-# intra_imbal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[0])
-# intra_imbal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[0])
+# intra_imbal_lr_classifiers, intra_imbal_lr_best_params, intra_imbal_lr_performance_metrics = lr_intra_classify(X1, Y1, result_folders[0])
+# intra_imbal_mlp_classifiers, intra_imbal_mlp_best_params, intra_imbal_mlp_performance_metrics = mlp_intra_classify(X1, Y1, result_folders[0])
+# intra_imbal_dt_classifiers, intra_imbal_dt_best_params, intra_imbal_dt_performance_metrics = dt_intra_classify(X1, Y1, result_folders[0])
 _ = two_layer_mlp_intra_classify(X1, Y1, result_folders[0])
 # %%
-# METHOD 2: Intra-patient split with dataset rebalance
+# METHOD 2: Intra-patient split with dataset balance
 X1, Y1, groups = filter_df(df, balance = True)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-# intra_bal_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_intra_classify(X1, Y1, folder[1])
-# intra_bal_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_intra_classify(X1, Y1, folder[1])
-# intra_bal_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_intra_classify(X1, Y1, folder[1])
+# intra_bal_lr_classifiers, intra_bal_lr_best_params, intra_bal_lr_performance_metrics = lr_intra_classify(X1, Y1, result_folders[1])
+# intra_bal_mlp_classifiers, intra_bal_mlp_best_params, intra_bal_mlp_performance_metrics = mlp_intra_classify(X1, Y1, result_folders[1])
+# intra_bal_dt_classifiers, intra_bal_dt_best_params, intra_bal_dt_performance_metrics = dt_intra_classify(X1, Y1, result_folders[1])
 _ = two_layer_mlp_intra_classify(X1, Y1, result_folders[1])
 # %%
-# METHOD 3: Inter-patient split with dataset rebalance
+# METHOD 3: Inter-patient split with dataset balance
 X1, Y1, groups = filter_df(df, balance = True)
 
 print(f'Shape: X1 {X1.shape} Y1 {Y1.shape}')
-# inter_lr_classifiers, intra_lr_best_params, intra_lr_performance_metrics = lr_inter_classify(X1, Y1, groups, folder[2])
-# inter_mlp_classifiers, intra_mlp_best_params, intra_mlp_performance_metrics = mlp_inter_classify(X1, Y1, groups, folder[2])
-# inter_dt_classifiers, intra_dt_best_params, intra_dt_performance_metrics = dt_inter_classify(X1, Y1, groups, folder[2])
+# inter_lr_classifiers, inter_lr_best_params, inter_lr_performance_metrics = lr_inter_classify(X1, Y1, groups, result_folders[2])
+# inter_mlp_classifiers, inter_mlp_best_params, inter_mlp_performance_metrics = mlp_inter_classify(X1, Y1, groups, result_folders[2])
+# inter_dt_classifiers, inter_dt_best_params, inter_dt_performance_metrics = dt_inter_classify(X1, Y1, groups, result_folders[2])
 _ = two_layer_mlp_inter_classify(X1, Y1, groups, result_folders[2])
+# %%
