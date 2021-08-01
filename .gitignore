@@ -1,5 +1,9 @@
 # Project specific files
 data/
+results_inter/
+results_inter_bal/
+results_intra_bal/
+results_intra_imbal/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
