@@ -52,9 +52,9 @@ import torch.nn as nn
 reload(perceptron_estimator)
 
 
-estimator = perceptron_estimator.PytorchEstimator()
+estimator = perceptron_estimator.PytorchEstimator(total_epochs=1)
 param_grid = {
-    'hidden_count': [10, 100, 1000], 
+    'hidden_count': [10, 22, 100], 
     'activation': [nn.ReLU, nn.Sigmoid, nn.PReLU]}
 
 # Because sklearn does not support cross_val_score() function with GroupKFold CV, we have to do this manually

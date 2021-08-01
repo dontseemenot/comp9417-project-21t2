@@ -38,8 +38,10 @@ class Model(nn.Module):
         
         self.fc1 = nn.Linear(n_inputs, n_hidden)
         self.act1 = hidden_activ()
-        self.fc2 = nn.Linear(n_hidden, n_outputs)
+        self.fc2 = nn.Linear(n_hidden, n_hidden)
         self.act2 = hidden_activ()
+        self.fc3 = nn.Linear(n_hidden, n_outputs)
+        self.act3 = hidden_activ()
         # self.act2 = nn.Sigmoid()
     
     # Takes in an input of size (B,F)
@@ -48,9 +50,14 @@ class Model(nn.Module):
     def forward(self, x):
         x0 = self.fc1(x)
         x0 = self.act1(x0)
+
         x1 = self.fc2(x0)
         x1 = self.act2(x1)
-        y = x1
+
+        x2 = self.fc3(x1)
+        x2 = self.act3(x2)
+
+        y = x2
         return y
 
 ## Model training and testing
